@@ -15,6 +15,8 @@ services:
       loki:
         condition: service_started
     ports:
+      # Only host mapping in this stack. Loopback 3000 is free: the REST
+      # gateway publishes 80/443 and Express uses 3000 inside Docker only.
       - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
     environment:
       GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
@@ -56,7 +58,6 @@ services:
       - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-15d}
       - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-20GB}
       - --web.enable-lifecycle
-      - --web.enable-admin-api=false
     volumes:
       - prometheus_data:/prometheus
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -196,7 +197,7 @@ services:
     profiles: ["loadtest"]
     logging: *default-logging
     environment:
-      K6_TARGET: ${K6_TARGET:-http://rest-develop:8080}
+      K6_TARGET: ${K6_TARGET:-http://testbackend:3000}
       K6_PATH: ${K6_PATH:-/metrics}
     volumes:
       - ./k6:/scripts:ro
@@ -209,7 +210,7 @@ networks:
     name: observability
     driver: bridge
   monitoring:
-    name: ${MONITORING_NETWORK:-monitoring_net}
+    name: ${MONITORING_NETWORK:-rest-edge}
     external: true
 
 volumes:

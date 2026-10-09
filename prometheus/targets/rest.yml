@@ -1,12 +1,12 @@
-# File service discovery for the REST API.
-# Change host:port here if the API does not listen on 8080 inside its container.
+# File service discovery for the REST Express API on rest-edge.
+# Internal port is 3000 (same as /health). Do not use 8080.
 - targets:
-    - rest-develop:8080
+    - testbackend:3000
   labels:
     environment: develop
     __metrics_path__: /metrics
 - targets:
-    - rest-production:8080
+    - prodbackend:3000
   labels:
     environment: production
     __metrics_path__: /metrics

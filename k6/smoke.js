@@ -9,7 +9,7 @@ export const options = {
   },
 };
 
-const base = __ENV.K6_TARGET || "http://rest-develop:8080";
+const base = __ENV.K6_TARGET || "http://testbackend:3000";
 const path = __ENV.K6_PATH || "/metrics";
 
 export default function () {
