@@ -1,0 +1,25 @@
+# Drop-in for /etc/aide/aide.conf.d/
+# Keep Docker overlay, logs and kernel fs out of the baseline.
+
+!/var/lib/docker
+!/var/lib/containerd
+!/var/lib/lxc
+!/var/log
+!/var/cache
+!/tmp
+!/proc
+!/sys
+!/dev
+!/run
+!/home
+!/root
+!/opt
+!/loki
+!/var/lib/grafana
+!/var/lib/prometheus
+
+# Explicit coverage requested for this stack.
+/boot    NORMAL
+/etc     NORMAL
+/usr/bin NORMAL
+/usr/sbin NORMAL

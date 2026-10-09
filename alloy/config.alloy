@@ -1,0 +1,140 @@
+logging {
+  level  = "warn"
+  format = "logfmt"
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// REST application logs: only containers labeled observability=enabled.
+discovery.docker "linux" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "15s"
+}
+
+discovery.relabel "rest_logs" {
+  targets = discovery.docker.linux.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_observability"]
+    regex         = "enabled"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_environment"]
+    target_label  = "environment"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "rest" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.relabel.rest_logs.output
+  labels        = { job = "docker" }
+  relabel_rules = discovery.relabel.rest_logs.rules
+  forward_to    = [loki.write.default.receiver]
+}
+
+// auditd syscall log (host). The file appears after host/install-host-audit.sh.
+local.file_match "audit" {
+  path_targets = [{
+    __path__ = "/var/log/audit/audit.log",
+    job      = "auditd",
+  }]
+}
+
+loki.source.file "audit" {
+  targets    = local.file_match.audit.targets
+  forward_to = [loki.write.default.receiver]
+}
+
+// SSH, sudo, snoopy and tlog metadata from journald.
+loki.relabel "journal" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+
+  rule {
+    source_labels = ["__journal__syslog_identifier"]
+    target_label  = "syslog_identifier"
+  }
+
+  rule {
+    source_labels = ["__journal__uid"]
+    target_label  = "uid"
+  }
+}
+
+loki.source.journal "host" {
+  max_age       = "12h"
+  path          = "/var/log/journal"
+  labels        = { job = "journal" }
+  relabel_rules = loki.relabel.journal.rules
+  forward_to    = [loki.process.journal.receiver]
+}
+
+loki.process "journal" {
+  stage.match {
+    selector = "{unit=~\"ssh\\.service|sshd\\.service|sudo\\.service\"} or {syslog_identifier=~\"snoopy|tlog.*\"}"
+    action   = "keep"
+  }
+
+  stage.match {
+    selector = "{unit=~\"ssh\\.service|sshd\\.service\"}"
+
+    stage.static_labels {
+      values = {
+        job = "ssh",
+      }
+    }
+  }
+
+  stage.match {
+    selector = "{unit=\"sudo.service\"}"
+
+    stage.static_labels {
+      values = {
+        job = "sudo",
+      }
+    }
+  }
+
+  stage.match {
+    selector = "{syslog_identifier=\"snoopy\"}"
+
+    stage.static_labels {
+      values = {
+        job = "snoopy",
+      }
+    }
+  }
+
+  stage.match {
+    selector = "{syslog_identifier=~\"tlog.*\"}"
+
+    stage.static_labels {
+      values = {
+        job = "tlog",
+      }
+    }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}

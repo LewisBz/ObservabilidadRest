@@ -1,0 +1,148 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: vps
+    folder: Observability
+    interval: 1m
+    rules:
+      - uid: target-down
+        title: Target down
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              expr: up == 0
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+              refId: B
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: Target {{ $labels.job }} {{ $labels.instance }} is down
+        labels:
+          severity: warning
+        isPaused: false
+
+      - uid: host-disk-almost-full
+        title: Host disk almost full
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              expr: (node_filesystem_avail_bytes{mountpoint="/",fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{mountpoint="/",fstype!~"tmpfs|overlay"}) < 0.15
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+              refId: B
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: Root filesystem below 15% free
+        labels:
+          severity: warning
+        isPaused: false
+
+      - uid: host-memory-almost-full
+        title: Host memory almost full
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) < 0.10
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+              refId: B
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: Host memory below 10% available
+        labels:
+          severity: warning
+        isPaused: false

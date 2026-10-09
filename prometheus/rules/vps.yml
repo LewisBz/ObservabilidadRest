@@ -1,0 +1,39 @@
+groups:
+  - name: vps
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Target {{ $labels.job }} {{ $labels.instance }} is down"
+          description: "Prometheus has not scraped {{ $labels.instance }} (job={{ $labels.job }}) for more than 2 minutes."
+
+      - alert: HostDiskAlmostFull
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/",fstype!~"tmpfs|overlay"}
+            /
+            node_filesystem_size_bytes{mountpoint="/",fstype!~"tmpfs|overlay"}
+          ) < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Root filesystem below 15% free"
+          description: "Less than 15% free space remains on /."
+
+      - alert: HostMemoryAlmostFull
+        expr: |
+          (
+            node_memory_MemAvailable_bytes
+            /
+            node_memory_MemTotal_bytes
+          ) < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host memory below 10% available"
+          description: "Available memory on the VPS is under 10%."

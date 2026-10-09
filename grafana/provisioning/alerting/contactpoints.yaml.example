@@ -1,0 +1,14 @@
+# Copy to contactpoints.yaml and set ALERT_WEBHOOK_URL in .env,
+# or replace url with your Telegram/email gateway.
+# Grafana only loads *.yaml / *.yml in this directory.
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: webhook-optional
+    receivers:
+      - uid: webhook-optional
+        type: webhook
+        disableResolveMessage: false
+        settings:
+          url: http://127.0.0.1:9/replace-me
