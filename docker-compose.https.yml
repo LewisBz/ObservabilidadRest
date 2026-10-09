@@ -1,0 +1,59 @@
+x-https-logging: &https-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  grafana:
+    environment:
+      GF_SERVER_DOMAIN: ${GRAFANA_DOMAIN:?GRAFANA_DOMAIN is required}
+      GF_SERVER_ROOT_URL: https://${GRAFANA_DOMAIN}:${HTTPS_PORT:-8443}
+      GF_SERVER_ENFORCE_DOMAIN: "true"
+
+  nginx:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    logging: *https-logging
+    depends_on:
+      grafana:
+        condition: service_healthy
+    ports:
+      - "${HTTPS_PORT:-8443}:443"
+    environment:
+      GRAFANA_DOMAIN: ${GRAFANA_DOMAIN:?GRAFANA_DOMAIN is required}
+    volumes:
+      - ./deploy/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - certbot_conf:/etc/letsencrypt:ro
+    networks:
+      - observability
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+        reservations:
+          cpus: "0.05"
+          memory: 32M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --no-check-certificate --spider https://127.0.0.1/nginx-health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  certbot:
+    image: certbot/certbot:latest
+    profiles: ["ssl"]
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - gateway_certbot_www:/var/www/certbot
+    command: ["certonly", "--webroot", "--webroot-path=/var/www/certbot", "--email=${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL is required}", "--agree-tos", "--no-eff-email", "--non-interactive", "--cert-name=${GRAFANA_DOMAIN:?GRAFANA_DOMAIN is required}", "-d", "${GRAFANA_DOMAIN}"]
+    networks:
+      - observability
+
+volumes:
+  certbot_conf:
+  gateway_certbot_www:
+    external: true
+    name: ${GATEWAY_CERTBOT_WEBROOT_VOLUME:-rest-gateway_certbot_www}
